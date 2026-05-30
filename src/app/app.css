@@ -75,8 +75,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  width: 600px;
-  padding: 8px 16px;
+  width: 1200px;
+  padding: 8px 20px;
   background: rgba(0,0,0,0.55);
   border: 1px solid #00ffcc;
   border-bottom: none;
@@ -233,7 +233,7 @@
 
 /* ── Hint bar ────────────────────────────────────────────────── */
 .hint-bar {
-  width: 600px;
+  width: 1200px;
   padding: 6px 16px;
   background: rgba(0,0,0,0.4);
   border: 1px solid #1a3322;
@@ -247,7 +247,7 @@
 
 /* ── Scoreboard ──────────────────────────────────────────────── */
 .scoreboard {
-  width: 600px;
+  width: 1200px;
   margin-top: 10px;
   display: flex;
   flex-direction: column;
@@ -259,7 +259,7 @@
   border-collapse: collapse;
   background: rgba(0,0,0,0.5);
   border: 1px solid #1a4433;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .name-cell {
@@ -303,11 +303,11 @@
 
 .r-box {
   display: inline-block;
-  width: 18px;
-  height: 18px;
-  line-height: 18px;
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
   text-align: center;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: bold;
   border: 1px solid #223322;
   border-radius: 2px;
@@ -318,8 +318,8 @@
 
 .score-cell {
   text-align: center;
-  padding: 1px 2px;
-  font-size: 12px;
+  padding: 2px 4px;
+  font-size: 14px;
   color: #aaccaa;
   border-right: 1px solid #112211;
 }

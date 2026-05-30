@@ -75,15 +75,16 @@
         <!-- Pins (drawn back-to-front for correct occlusion) -->
         <g *ngFor="let pin of pins">
           <ng-container *ngIf="pinSvg(pin) as p">
-            <!-- Shadow ellipse -->
+            <!-- Shadow stays at ground position; spreads when pin is airborne -->
             <ellipse
               [attr.cx]="p.x"
-              [attr.cy]="p.y + p.r * 0.5"
-              [attr.rx]="p.r * 1.2"
-              [attr.ry]="p.r * 0.4"
-              [attr.opacity]="p.op * 0.5"
+              [attr.cy]="p.groundY + p.r * 0.5"
+              [attr.rx]="p.shadowRx"
+              [attr.ry]="p.shadowRy"
+              [attr.opacity]="p.op * 0.55 * p.shadowFade"
               class="pin-shadow"/>
-            <!-- Pin body, rotates around base when falling -->
+            <!-- Pin body at elevated position (p.y = groundY - heightPx) -->
+            <!-- Rotation around the base of the elevated pin -->
             <g [attr.transform]="'rotate(' + p.angle + ',' + p.x + ',' + (p.y + p.r) + ')'">
               <rect
                 [attr.x]="p.x - p.r * 0.65"
@@ -93,7 +94,6 @@
                 [attr.rx]="p.r * 0.65"
                 [attr.opacity]="p.op"
                 class="pin-body"/>
-              <!-- Red stripe -->
               <rect
                 [attr.x]="p.x - p.r * 0.65"
                 [attr.y]="p.y - p.r * 1.85"
@@ -101,7 +101,6 @@
                 [attr.height]="p.r * 0.38"
                 [attr.opacity]="p.op"
                 class="pin-stripe"/>
-              <!-- Second stripe -->
               <rect
                 [attr.x]="p.x - p.r * 0.65"
                 [attr.y]="p.y - p.r * 1.30"

@@ -1,8 +1,6 @@
 import { Component, HostListener, OnDestroy, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-// ── Pin definitions ──────────────────────────────────────────────────────────
-// gx: left-right in lane (-1 to +1), gy: depth (0 = far/pins end, 1 = near/player)
 const PIN_DEFS = [
   { id: 1,  gx:  0.000, gy: 0.130 },
   { id: 2,  gx: -0.072, gy: 0.104 },
@@ -16,7 +14,6 @@ const PIN_DEFS = [
   { id: 10, gx:  0.216, gy: 0.052 },
 ];
 
-// Which pins can be chain-knocked by another pin falling
 const ADJACENT: Record<number, number[]> = {
   1:  [2, 3],
   2:  [1, 4, 5],
@@ -38,8 +35,12 @@ type Phase = 'setup' | 'aiming' | 'power' | 'rolling' | 'pinFall' | 'result' | '
 interface Pin {
   id: number; gx: number; gy: number;
   standing: boolean;
-  fallDir: number;   // -1 or +1
-  fallPct: number;   // 0→1 during fall animation
+  fallDir: number;
+  fallPct: number;
+  // Physics
+  vx: number; vy: number;    // lateral / depth velocity (game units / frame)
+  hz: number; vz: number;    // height above lane + vertical velocity
+  physActive: boolean;
 }
 
 interface FrameData {
@@ -66,19 +67,17 @@ interface Player {
 })
 export class AppComponent implements AfterViewInit, OnDestroy {
 
-  // ── Scene geometry (pseudo-3D perspective) ────────────────────────────────
-  // This projection system can be reused for any top-down 3D game (putt-putt etc).
-  // Concept: game coords (gx, gy) → screen coords via linear perspective lerp.
-  // gx: -1..+1 across the lane, gy: 0=far(pins)/1=near(player)
-  // Objects scale with depth (gy), gutters converge to vanishing point.
-  readonly SW = 600;
-  readonly SH = 660;
-  readonly VX = 300;      // vanishing point X
-  readonly VY = 68;       // vanishing point Y
-  readonly NEAR_Y = 590;  // screen Y at near (player) edge
-  readonly FAR_HW  = 44;  // lane half-width at far end (pixels)
-  readonly NEAR_HW = 148; // lane half-width at near end (pixels)
-  readonly GUTTER_RATIO = 0.36; // gutter width as fraction of half-lane
+  // ── Scene geometry (pseudo-3D perspective projection) ─────────────────────
+  // proj(gx, gy) maps game coords → screen. Reuse for putt-putt, slot cars etc.
+  // gx ∈ [-1,+1] = lateral, gy ∈ [0,1] = depth (0=far/pins, 1=near/player)
+  readonly SW = 1200;
+  readonly SH = 700;
+  readonly VX = 600;      // vanishing point X (center)
+  readonly VY = 68;       // vanishing point Y (horizon)
+  readonly NEAR_Y = 620;  // screen Y at near edge
+  readonly FAR_HW  = 88;  // lane half-width at far end (px)
+  readonly NEAR_HW = 296; // lane half-width at near end (px)
+  readonly GUTTER_RATIO = 0.28;
 
   // ── State ─────────────────────────────────────────────────────
   phase: Phase = 'setup';
@@ -87,26 +86,18 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   curIdx = 0;
   pins: Pin[] = [];
 
-  ballGX = 0;
-  ballGY = 1.0;
-  ballVis = false;
-
+  ballGX = 0; ballGY = 1.0; ballVis = false;
   aimGX = 0;
-  leftHeld = false;
-  rightHeld = false;
-
-  power = 0;
-  powerDir = 1;
-
+  leftHeld = false; rightHeld = false;
+  power = 0; powerDir = 1;
   hookAcc = 0;
   private rollSpeed = 0;
   private throwGX = 0;
 
-  resultText = '';
-  resultClass = '';
+  resultText = ''; resultClass = '';
 
   private fallStart = 0;
-  private readonly FALL_MS = 650;
+  private readonly FALL_MS = 600;
   private knockedIds: number[] = [];
 
   private rafId = 0;
@@ -130,6 +121,11 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   // ── Master tick ───────────────────────────────────────────────
 
   private tick(dt: number, ts: number) {
+    // Pin physics runs in every non-setup/gameover phase
+    if (this.phase !== 'setup' && this.phase !== 'gameover') {
+      for (const pin of this.pins) this.stepPinPhysics(pin);
+    }
+
     switch (this.phase) {
       case 'aiming': {
         const spd = 0.0034;
@@ -148,11 +144,9 @@ export class AppComponent implements AfterViewInit, OnDestroy {
         if (this.rightHeld) this.hookAcc = Math.min( 0.30, this.hookAcc + 0.00085 * dt);
         this.ballGY -= this.rollSpeed;
         this.ballGX  = this.throwGX + this.hookAcc * (1 - this.ballGY);
-
         if (Math.abs(this.ballGX) > 1.04) {
           this.ballGX = Math.sign(this.ballGX) * 1.04;
-          this.landBall(ts);
-          return;
+          this.landBall(ts); return;
         }
         if (this.ballGY <= 0.045) { this.landBall(ts); return; }
         break;
@@ -166,6 +160,44 @@ export class AppComponent implements AfterViewInit, OnDestroy {
         break;
       }
     }
+  }
+
+  // ── Pin physics ───────────────────────────────────────────────
+
+  private stepPinPhysics(pin: Pin) {
+    if (!pin.physActive) return;
+
+    // Lateral / depth slide with friction
+    pin.vx *= 0.955;
+    pin.vy *= 0.955;
+    pin.gx += pin.vx;
+    pin.gy += pin.vy;
+
+    // Vertical arc (gravity + bounce)
+    pin.vz -= 0.0048;
+    pin.hz += pin.vz;
+
+    if (pin.hz <= 0) {
+      pin.hz = 0;
+      if (Math.abs(pin.vz) > 0.012) {
+        // Bounce: lose energy, scatter slightly on landing
+        pin.vz  *= -0.42;
+        pin.vx  += (Math.random() - 0.5) * 0.003;
+        pin.vy  += (Math.random() - 0.5) * 0.001;
+      } else {
+        pin.vz = 0;
+        // Stop physics only when horizontal motion also minimal
+        if (Math.abs(pin.vx) < 0.0003 && Math.abs(pin.vy) < 0.0003) {
+          pin.physActive = false;
+        }
+      }
+    }
+
+    // Bounce off lane boundaries
+    if (pin.gx >  1.18) { pin.gx =  2.36 - pin.gx; pin.vx *= -0.60; }
+    if (pin.gx < -1.18) { pin.gx = -2.36 - pin.gx; pin.vx *= -0.60; }
+    if (pin.gy <  0.01) { pin.gy =  0.02 - pin.gy; pin.vy *= -0.55; }
+    if (pin.gy >  0.19) { pin.gy =  0.38 - pin.gy; pin.vy *= -0.50; }
   }
 
   // ── Input ─────────────────────────────────────────────────────
@@ -194,8 +226,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     this.players = Array.from({ length: n }, (_, i) => ({
       name: n === 1 ? 'Player' : `P${i + 1}`,
       frames: this.freshFrames(),
-      frame: 0, roll: 0,
-      downIds: new Set<number>(),
+      frame: 0, roll: 0, downIds: new Set<number>(),
     }));
     this.curIdx = 0;
     this.prepFrame();
@@ -224,8 +255,8 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   private resetPins() {
     this.pins = PIN_DEFS.map(d => ({
       ...d, standing: true,
-      fallDir: Math.random() > 0.5 ? 1 : -1,
-      fallPct: 0,
+      fallDir: Math.random() > 0.5 ? 1 : -1, fallPct: 0,
+      vx: 0, vy: 0, hz: 0, vz: 0, physActive: false,
     }));
   }
 
@@ -233,9 +264,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
   // ── Power / Throw ─────────────────────────────────────────────
 
-  private beginPower() {
-    this.phase = 'power'; this.power = 0; this.powerDir = 1;
-  }
+  private beginPower() { this.phase = 'power'; this.power = 0; this.powerDir = 1; }
 
   private doThrow() {
     this.throwGX   = this.aimGX;
@@ -245,18 +274,29 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     this.phase     = 'rolling';
   }
 
-  // ── Ball lands ────────────────────────────────────────────────
+  // ── Ball lands / pin knock ────────────────────────────────────
 
   private landBall(ts: number) {
     this.phase = 'pinFall';
     this.ballGY = 0.045;
     this.knockedIds = this.computeKnocked();
+
     for (const pin of this.pins) {
-      if (this.knockedIds.includes(pin.id)) {
-        pin.standing = false; pin.fallPct = 0;
-        pin.fallDir  = Math.random() > 0.5 ? 1 : -1;
-      }
+      if (!this.knockedIds.includes(pin.id)) continue;
+      pin.standing = false; pin.fallPct = 0;
+      pin.fallDir = Math.random() > 0.5 ? 1 : -1;
+
+      // Launch physics — velocity away from ball contact point
+      const dx = pin.gx - this.ballGX;
+      const dist = Math.max(Math.abs(dx), 0.04);
+      const spd = 0.0018 + Math.random() * 0.0022;
+      pin.vx = (dx / dist) * spd * (0.6 + Math.random() * 0.8);
+      pin.vy = -(0.0005 + Math.random() * 0.001);  // slight push toward back wall
+      pin.vz = 0.055 + Math.random() * 0.085;      // upward jump
+      pin.hz = 0;
+      pin.physActive = true;
     }
+
     this.fallStart = ts;
   }
 
@@ -294,7 +334,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     frame.rolls[p.roll] = count;
     this.recalcScores();
 
-    const is10th  = p.frame === 9;
+    const is10th = p.frame === 9;
     const totalDn = p.downIds.size;
 
     if (p.roll === 0 && count === 10) {
@@ -320,7 +360,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
       const r0 = fr.rolls[0]!, r1 = fr.rolls[1]!;
       return r0 !== 10 && r0 + r1 < 10;
     }
-    return true; // 3rd ball always done
+    return true;
   }
 
   // ── Advance turn ──────────────────────────────────────────────
@@ -331,15 +371,11 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     const is10th = p.frame === 9;
 
     if (this.frameDone(p)) {
-      const wasFrame = p.frame;
       if (this.playerCount > 1) {
         const ni = (this.curIdx + 1) % this.playerCount;
         this.curIdx = ni;
         const np = this.cur;
-        // If wrapped around, advance frame
-        if (ni === 0) {
-          for (const pl of this.players) pl.frame++;
-        }
+        if (ni === 0) { for (const pl of this.players) pl.frame++; }
         if (np.frame >= 10) { this.endGame(); return; }
         np.roll = 0;
         this.prepFrame();
@@ -353,11 +389,10 @@ export class AppComponent implements AfterViewInit, OnDestroy {
       p.roll++;
       if (is10th) {
         const r0 = fr.rolls[0]!, r1 = fr.rolls[1];
-        // Reset pins for bonus balls
         if (p.roll === 1 && r0 === 10) {
           this.resetPins(); p.downIds.clear();
         } else if (p.roll === 2) {
-          const spare10 = r0 !== 10 && (r0 + r1!) === 10;
+          const spare10   = r0 !== 10 && (r0 + r1!) === 10;
           const dblStrike = r0 === 10 && r1 === 10;
           if (spare10 || dblStrike) { this.resetPins(); p.downIds.clear(); }
         }
@@ -378,7 +413,6 @@ export class AppComponent implements AfterViewInit, OnDestroy {
         const frame = player.frames[f];
         const r1 = rolls[ri];
         if (r1 == null) { frame.score = null; break; }
-
         if (f < 9) {
           if (r1 === 10) {
             const b2 = rolls[ri + 1], b3 = rolls[ri + 2];
@@ -418,13 +452,8 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     return out;
   }
 
-  // ── Projection helpers ────────────────────────────────────────
+  // ── Projection (reusable pseudo-3D system) ────────────────────
 
-  // Core pseudo-3D projection function.
-  // Reusable for any top-down perspective game:
-  //   gx ∈ [-1,+1] = lateral position across the playing surface
-  //   gy ∈ [0,1]   = depth (0=far end, 1=camera/near end)
-  // Returns screen (x, y) and a depth scale factor.
   proj(gx: number, gy: number) {
     const t  = gy;
     const sy = this.VY + t * (this.NEAR_Y - this.VY);
@@ -434,33 +463,19 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     return { x: sx, y: sy, scale: sc };
   }
 
-  // ── SVG shape helpers ─────────────────────────────────────────
+  // ── SVG helpers ───────────────────────────────────────────────
 
   get lanePoints(): string {
-    const tl = this.proj(-1, 0), tr = this.proj(1, 0);
-    const br = this.proj(1, 1), bl = this.proj(-1, 1);
-    return pts(tl, tr, br, bl);
+    return pts(this.proj(-1,0), this.proj(1,0), this.proj(1,1), this.proj(-1,1));
   }
-
-  get glPoints(): string {   // left gutter
+  get glPoints(): string {
     const f = this.GUTTER_RATIO;
-    const ti = this.proj(-1, 0), to = this.proj(-1 - f, 0);
-    const bi = this.proj(-1, 1), bo = this.proj(-1 - f, 1);
-    return pts(ti, to, bo, bi);
+    return pts(this.proj(-1,0), this.proj(-1-f,0), this.proj(-1-f,1), this.proj(-1,1));
   }
-
-  get grPoints(): string {   // right gutter
+  get grPoints(): string {
     const f = this.GUTTER_RATIO;
-    const ti = this.proj(1, 0), to = this.proj(1 + f, 0);
-    const bi = this.proj(1, 1), bo = this.proj(1 + f, 1);
-    return pts(ti, to, bo, bi);
+    return pts(this.proj(1,0), this.proj(1+f,0), this.proj(1+f,1), this.proj(1,1));
   }
-
-  get foulLine(): string {
-    const l = this.proj(-1, 0.965), r = this.proj(1, 0.965);
-    return `${l.x},${l.y} ${r.x},${r.y}`;
-  }
-
   get arrowPts(): string[] {
     return ARROW_GX.map(gx => {
       const tip = this.proj(gx, 0.310);
@@ -469,28 +484,29 @@ export class AppComponent implements AfterViewInit, OnDestroy {
       return `${tip.x},${tip.y} ${lft.x},${lft.y} ${rgt.x},${rgt.y}`;
     });
   }
-
   get dots() { return DOT_GX.map(gx => this.proj(gx, 0.52)); }
-
   get aimLinePts(): string {
-    const n = this.proj(this.aimGX, 0.96);
-    const f = this.proj(this.aimGX, 0.09);
+    const n = this.proj(this.aimGX, 0.96), f = this.proj(this.aimGX, 0.09);
     return `${n.x},${n.y} ${f.x},${f.y}`;
   }
-
   get aimCursor() { return this.proj(this.aimGX, 0.97); }
-
   get ballCircle() {
     const { x, y, scale } = this.proj(this.ballGX, this.ballGY);
     return { cx: x, cy: y, r: 14 * scale };
   }
 
+  // Pin SVG data — returns ground position for shadow and elevated body position
   pinSvg(pin: Pin) {
-    const { x, y, scale } = this.proj(pin.gx, pin.gy);
+    const { x, y: groundY, scale } = this.proj(pin.gx, pin.gy);
     const r = 9 * scale;
-    const angle = pin.standing ? 0 : pin.fallDir * 88 * pin.fallPct;
-    const op = pin.standing ? 1 : Math.max(0, 1 - pin.fallPct * 0.6);
-    return { x, y, r, angle, op, scale };
+    const heightPx = pin.hz * 420 * scale;
+    const y = groundY - heightPx;                                // elevated pin center
+    const angle = pin.standing ? 0 : pin.fallDir * 88 * Math.min(pin.fallPct, 1);
+    const op  = pin.standing ? 1 : Math.max(0.12, 1 - pin.fallPct * 0.5);
+    const shadowFade = Math.max(0.08, 1 - pin.hz * 1.8);
+    const shadowRx = r * (1.2 + pin.hz * 0.8);
+    const shadowRy = r * 0.4 * Math.max(0.25, shadowFade);
+    return { x, y, groundY, r, angle, op, scale, shadowRx, shadowRy, shadowFade };
   }
 
   // ── Scoreboard helpers ────────────────────────────────────────
@@ -505,7 +521,6 @@ export class AppComponent implements AfterViewInit, OnDestroy {
       if ((fr.rolls[0]! + v) === 10) return '/';
       return v === 0 ? '-' : `${v}`;
     }
-    // 10th frame
     if (ri === 0) return v === 10 ? 'X' : v === 0 ? '-' : `${v}`;
     if (ri === 1) {
       const r0 = fr.rolls[0]!;
@@ -515,14 +530,8 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     return v === 10 ? 'X' : v === 0 ? '-' : `${v}`;
   }
 
-  isActive(p: Player, fi: number): boolean {
-    return p === this.cur && p.frame === fi;
-  }
-
-  totalScore(p: Player): number {
-    return [...p.frames].reverse().find(f => f.score !== null)?.score ?? 0;
-  }
-
+  isActive(p: Player, fi: number): boolean { return p === this.cur && p.frame === fi; }
+  totalScore(p: Player): number { return [...p.frames].reverse().find(f => f.score !== null)?.score ?? 0; }
   range(n: number): number[] { return Array.from({ length: n }, (_, i) => i); }
 
   get hint(): string {
