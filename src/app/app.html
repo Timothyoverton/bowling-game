@@ -126,10 +126,10 @@
 
         <!-- Bowling ball -->
         <ng-container *ngIf="ballVis">
-          <circle
+          <ellipse
             [attr.cx]="ballCircle.cx"
-            [attr.cy]="ballCircle.cy + ballCircle.r * 0.4"
-            [attr.rx]="ballCircle.r * 1.1"
+            [attr.cy]="ballCircle.cy + ballCircle.r * 0.5"
+            [attr.rx]="ballCircle.r * 1.2"
             [attr.ry]="ballCircle.r * 0.35"
             class="ball-shadow"/>
           <circle
