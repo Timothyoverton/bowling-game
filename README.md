@@ -1,215 +1,228 @@
-# Angular Web Stub
+# Bowling Game
 
-This is a boilerplate Angular project designed for quick deployment to GitHub Pages. It includes all the necessary configuration for automated deployment via GitHub Actions.
+A neon retro 10-pin bowling game built with Angular 20 — pseudo-3D SVG lane, full scoring, 1-2 players.
 
-## Quick Start for New Projects
+## Play Now
 
-To use this as a template for a new project:
+🎳 **Play the game:** https://timothyoverton.github.io/bowling-game/
 
-1. **Clone this repo**:
-   ```bash
-   git clone https://github.com/Timothyoverton/angular-web-stub.git your-new-project
-   cd your-new-project
-   ```
+## How to Play
 
-2. **Update the project name and GitHub Pages path**:
-   - In `package.json`: Update `"name"` field and replace `/angular-web-stub/` with `/your-new-project/` in the `build:prod` and `deploy` scripts
-   - In `.github/workflows/deploy.yml`: Update `publish_dir` if needed (usually stays the same)
-   - In this README: Update the repo URLs and project name
+1. Open the game in your browser (click the link above!)
+2. Choose **1 Player** or **2 Players** (hot-seat — players swap after each frame)
 
-3. **Set up the new GitHub repository**:
-   ```bash
-   git remote remove origin
-   git remote add origin https://github.com/Timothyoverton/your-new-project.git
-   git branch -M main
-   ```
+### Controls
 
-4. **Install dependencies and test locally**:
-   ```bash
-   npm install
-   npm start
-   ```
+| Key | Action |
+|-----|--------|
+| ← → or A / D | Aim left / right |
+| SPACE (1st press) | Start power meter |
+| SPACE (2nd press) | Throw ball |
+| ← → during roll | Curve / hook the ball |
+| SPACE | Continue after result |
 
-5. **Push to GitHub and enable GitHub Pages**:
-   ```bash
-   git add .
-   git commit -m "Initial commit"
-   git push -u origin main
-   ```
+### Scoring
 
-## Available Scripts
+Standard 10-pin bowling rules:
+- **Strike** (all 10 on 1st ball): 10 + next 2 balls as bonus
+- **Spare** (all 10 on 2nd ball): 10 + next 1 ball as bonus
+- **10th frame**: earn extra balls for strikes/spares — maximum 3 balls
+- **Perfect game**: 12 consecutive strikes = 300
 
-- `npm start` - Start development server at http://localhost:4200/
-- `npm run build` - Build for development
-- `npm run build:prod` - Build for production with correct base href
-- `npm test` - Run unit tests
-- `npm run deploy` - Build and deploy to GitHub Pages manually
+### Tips
 
-## Deployment
+- Aim for the **1-3 pocket** (just right of center) for strikes
+- Use ← → after throwing to **curve the ball** around remaining pins
+- High power isn't always better — control beats speed
 
-The project is configured for automatic deployment to GitHub Pages:
+## Local Development
 
-1. **Automatic**: Push to `main` branch triggers GitHub Actions workflow that builds and deploys
-2. **Manual**: Run `npm run deploy` (requires `angular-cli-ghpages` package)
-
-## Key Configuration Files
-
-- `package.json` - Contains deployment scripts with correct base href
-- `.github/workflows/deploy.yml` - GitHub Actions workflow for auto-deployment
-- `angular.json` - Angular CLI configuration
-- `src/app/app.html` - Main component template (currently shows "Can you see me?")
-
-## CRITICAL INSTRUCTIONS FOR CLAUDE CODE
-
-### CLAUDE CODE COMPLETE AUTOMATION WORKFLOW:
-
-**Ask user only these 2 questions:**
-1. "What should the new project be called?" (e.g. "my-awesome-game")
-2. "Is the GitHub repository public?" (required for free GitHub Pages)
-
-**Then Claude Code does EVERYTHING automatically:**
-
-### COMPLETE AUTOMATED SETUP (Copy this exact workflow):
-
-**Step 1: Clone and Setup**
-```bash
-git clone https://github.com/Timothyoverton/angular-web-stub.git NEW-PROJECT-NAME
-cd NEW-PROJECT-NAME
-```
-
-**Step 2: Update ALL Project References (CRITICAL!)**
-1. **package.json** - Update these 3 places:
-   - Line 2: `"name": "NEW-PROJECT-NAME"`
-   - Line 8: `"build:prod": "ng build --configuration production --base-href=\"/NEW-PROJECT-NAME/\""`
-   - Line 11: `"deploy": "ng build --configuration production --base-href=\"/NEW-PROJECT-NAME/\" && npx angular-cli-ghpages --dir=dist/NEW-PROJECT-NAME/browser"`
-
-2. **angular.json** - Line ~13: Update `"outputPath": "dist/NEW-PROJECT-NAME"`
-
-3. **.github/workflows/deploy.yml** - Line 34: Update `publish_dir: ./dist/NEW-PROJECT-NAME/browser`
-
-**Step 3: Change Git Remote**
-```bash
-git remote remove origin
-git remote add origin https://github.com/Timothyoverton/NEW-PROJECT-NAME.git
-```
-
-**Step 4: Install Dependencies & Test Build**
 ```bash
 npm install
-npm run build:prod  # Verify build works before deploying
+npm start
 ```
 
-**Step 5: Commit and Push to GitHub**  
+Visit http://localhost:4200/
+
+## Build and Deploy
+
 ```bash
-git add .
-git commit -m "Initial setup from angular-web-stub
+# Build for production
+npm run build:prod
 
-- Project renamed to NEW-PROJECT-NAME
-- Configured for GitHub Pages deployment  
-- Ready for immediate use
-
-🤖 Generated with Claude Code"
-git push -u origin main
-```
-
-**Step 6: Deploy to GitHub Pages**
-```bash
+# Deploy to GitHub Pages (gh-pages branch)
 npm run deploy
 ```
 
-**Step 7: Enable GitHub Pages (AUTOMATED)**
-```bash
-gh api -X PUT /repos/Timothyoverton/NEW-PROJECT-NAME/pages \
-  -f source.branch=gh-pages -f source.path=/
-```
+---
 
-**Step 8: Verify Deployment**
-```bash
-echo "✅ Project setup complete!"
-echo "🌐 Local dev: http://localhost:4200/"  
-echo "🚀 GitHub Pages: https://timothyoverton.github.io/NEW-PROJECT-NAME/"
-echo "⏰ GitHub Pages may take 5-10 minutes to become active"
-```
-
-### USER DOES ABSOLUTELY NOTHING!
-Claude Code handles: cloning, renaming, configuring, building, deploying, and enabling GitHub Pages.
-**Only requirement:** Repository must be PUBLIC for free GitHub Pages.
-
-### WHAT TO EXPECT:
-- ✅ Local dev server starts on http://localhost:4200/
-- ✅ Production build creates files in `dist/PROJECT-NAME/browser/`
-- ✅ GitHub Pages deploys automatically to `gh-pages` branch
-- ✅ Site goes live at `https://timothyoverton.github.io/PROJECT-NAME/`
-- ⏰ GitHub Pages takes 5-10 minutes to become active after first deployment
-
-### Key Files That Control Deployment:
-- **package.json** scripts: Controls build paths and base href
-- **.github/workflows/deploy.yml**: Auto-deployment on push to main
-- **angular.json**: Controls where Angular builds output files
-
-### The Magic URLs:
-- **Local dev**: http://localhost:4200/
-- **GitHub Pages**: https://timothyoverton.github.io/NEW-PROJECT-NAME/
-
-### Common Mistakes to Avoid:
-❌ Forgetting to update base href → 404 errors on GitHub Pages  
-❌ Mismatched folder names in package.json vs angular.json  
-❌ Not updating publish_dir in deploy.yml  
-❌ Testing on GitHub before testing locally  
-
-### If Something Breaks:
-1. **404 on GitHub Pages**: Most common issue! 
-   - Repository must be **public** (private repos need GitHub Pro)
-   - Check deploy paths use `/browser` subfolder: `dist/PROJECT-NAME/browser`
-   - Wait 5-10 minutes after deployment for GitHub Pages to update
-
-2. Check GitHub Actions logs for build errors
-3. Verify base href matches repo name exactly  
-4. Ensure all folder names are consistent across config files
-5. Test `npm run build:prod` locally first
-
-### IMPORTANT: Angular 17+ Build Structure
-Angular 17+ builds to `dist/project-name/browser/` not `dist/project-name/`. This is why we use `/browser` in all deploy paths.
-
-### WHAT CLAUDE CODE AUTOMATES (Everything!):
-✅ **Project Setup**: Clone, rename, configure all files  
-✅ **Git Operations**: Remove old remote, add new remote, commit, push  
-✅ **Dependencies**: Install npm packages automatically  
-✅ **Building**: Test production build before deployment  
-✅ **Deployment**: Deploy to GitHub Pages via npm script  
-✅ **GitHub Pages**: Enable Pages hosting via GitHub CLI  
-✅ **Validation**: Verify URLs and provide status updates  
-
-### CLAUDE CODE TOOL USAGE:
-1. **Use MultiEdit tool** for updating multiple project references at once
-2. **Always use Bash tool** for git commands and npm scripts - don't suggest manual steps  
-3. **Test the full flow** - clone, update, build, deploy in one session
-4. **Use GitHub CLI** (gh command) for Pages setup - it's pre-approved
-5. **Create TodoWrite list** to track the 8-step automated process
-
-### FILE REPLACEMENT CHECKLIST:
-When using MultiEdit or Edit tools, replace these exact strings:
-- `"angular-web-stub"` → `"NEW-PROJECT-NAME"` (in package.json name)
-- `/angular-web-stub/` → `/NEW-PROJECT-NAME/` (in base href paths)  
-- `angular-web-stub` → `NEW-PROJECT-NAME` (in output paths)
-- `./dist/angular-web-stub/browser` → `./dist/NEW-PROJECT-NAME/browser` (in deploy paths)
-
-## Project Structure
-
-This is a standard Angular project with:
-- Angular 20+ (latest version)
-- Standalone components (no NgModules)
-- TypeScript 5.8+
-- Simple responsive design
-- Ready for immediate deployment
-
-## Troubleshooting
-
-- If GitHub Pages shows 404: Check that base href matches your repo name
-- If build fails: Ensure Node.js version 20+ is being used
-- If styles don't load: Verify the base href in production build
-- If deployment fails: Check GitHub Actions logs and ensure GitHub Pages is enabled
+Built with Angular 20 — SVG pseudo-3D rendering, deployed via angular-cli-ghpages
 
 ---
 
-**Generated by Claude Code for quick Angular project setup and GitHub Pages deployment** 🚀
+## 📚 For Future Claude: 3D Rendering System & Deployment Guide
+
+### The Pseudo-3D Projection System
+
+This game uses a **reusable pseudo-3D projection** pattern that works for any top-down perspective game: bowling, putt-putt golf, slot car racing, isometric views, etc.
+
+#### Core concept
+
+The playing surface is represented in **game coordinates**:
+- `gx` ∈ [−1, +1] — lateral position across the surface (left to right)
+- `gy` ∈ [0, 1] — depth (0 = far/far end, 1 = near/camera end)
+
+The `proj(gx, gy)` function converts these to screen coordinates:
+
+```typescript
+// In app.ts — copy this for any top-down 3D game
+readonly VX = 300;      // vanishing point X (horizontal center)
+readonly VY = 68;       // vanishing point Y (how high up the horizon sits)
+readonly NEAR_Y = 590;  // screen Y at the near (player) edge
+readonly FAR_HW  = 44;  // lane half-width in pixels at far end
+readonly NEAR_HW = 148; // lane half-width in pixels at near end
+
+proj(gx: number, gy: number) {
+  const t  = gy;                                         // 0=far, 1=near
+  const sy = this.VY + t * (this.NEAR_Y - this.VY);     // screen Y (linear lerp)
+  const hw = this.FAR_HW + t * (this.NEAR_HW - this.FAR_HW); // lane half-width at this depth
+  const sx = this.VX + gx * hw;                         // screen X
+  const sc = 0.18 + t * 0.82;                           // depth scale (0.18 at far, 1.0 near)
+  return { x: sx, y: sy, scale: sc };
+}
+```
+
+**To reuse for putt-putt or other games:**
+- Adjust `VY` (higher = more dramatic perspective)
+- Adjust `FAR_HW` / `NEAR_HW` ratio (more difference = sharper vanishing)
+- The surface shape is a trapezoid: `proj(-1,0)` → `proj(1,0)` → `proj(1,1)` → `proj(-1,1)`
+- Scale all object sizes by `scale` so far objects appear smaller
+
+#### Lane floor (trapezoid)
+
+```html
+<polygon [attr.points]="lanePoints" class="lane-floor"/>
+```
+```typescript
+get lanePoints(): string {
+  const tl = this.proj(-1, 0), tr = this.proj(1, 0);
+  const br = this.proj(1, 1), bl = this.proj(-1, 1);
+  return `${tl.x},${tl.y} ${tr.x},${tr.y} ${br.x},${br.y} ${bl.x},${bl.y}`;
+}
+```
+
+#### Object depth-scaling
+
+```typescript
+// Example: place and scale a circle at game position (gx, gy)
+const { x, y, scale } = this.proj(gx, gy);
+// circle radius = baseRadius * scale
+// object z-index = Math.round(y) for correct overlap
+```
+
+#### Why SVG over DOM divs
+
+SVG is better for pseudo-3D games because:
+- Polygons and lines are first-class (trapezoid lane, aim guide, pin shapes)
+- `transform` on `<g>` tags makes grouped animation easy (pin fall = rotate group)
+- No z-index stacking context issues — SVG paint order is document order
+- Pin shapes (rect with rx) are trivial; DOM equivalent requires clip-path tricks
+
+---
+
+### Complete Deployment Workflow for New Angular Games
+
+#### 1. Setup from stub
+
+```bash
+git clone https://github.com/Timothyoverton/angular-web-stub /tmp/angular-web-stub
+mkdir /home/tom/src/NEW-GAME
+cd /home/tom/src/NEW-GAME
+cp -r /tmp/angular-web-stub/. .
+rm -rf .github   # remove workflow file — requires 'workflow' PAT scope, causes push rejection
+git init
+```
+
+#### 2. Configure project name (3 places in package.json, 1 in angular.json)
+
+```bash
+sed -i 's/angular-web-stub/NEW-GAME/g' package.json angular.json
+```
+
+Also fix `src/main.ts` — stub exports `App` but Angular CLI generates `AppComponent`:
+```typescript
+// Change:  import { App } from './app/app';
+// To:      import { AppComponent as App } from './app/app';
+```
+
+#### 3. Node.js (required — not in default PATH)
+
+```bash
+curl -fsSL https://nodejs.org/dist/v22.12.0/node-v22.12.0-linux-x64.tar.xz | tar -xJ -C /tmp
+export PATH="/tmp/node-v22.12.0-linux-x64/bin:$PATH"
+```
+
+Node v22.12.0 works. Angular 20 requires ≥v20.19 or ≥v22.x. The `/tmp` location does NOT persist across reboots — re-download if `node: command not found`.
+
+#### 4. Build & test
+
+```bash
+npm install
+npm run build:prod   # warning about CSS budget >4kB is OK, not an error
+```
+
+#### 5. Create GitHub repo
+
+```bash
+PAT="YOUR_REPO_SCOPE_PAT"
+curl -s -X POST \
+  -H "Authorization: token $PAT" \
+  -H "Accept: application/vnd.github+json" \
+  https://api.github.com/user/repos \
+  -d '{"name":"NEW-GAME","description":"...","private":false,"auto_init":false}'
+```
+
+#### 6. Push code
+
+```bash
+git config user.email "timothyoverton+claude@gmail.com"
+git config user.name "Timothy Overton"
+git remote add origin "https://Timothyoverton:YOUR_REPO_SCOPE_PAT@github.com/Timothyoverton/NEW-GAME.git"
+git add -A && git commit -m "Initial game"
+git push -u origin master
+```
+
+#### 7. Deploy to GitHub Pages
+
+```bash
+npm run deploy   # builds + pushes dist to gh-pages branch via angular-cli-ghpages
+```
+
+GitHub Pages auto-enables when the `gh-pages` branch is created. Wait 2-5 min then visit:
+```
+https://timothyoverton.github.io/NEW-GAME/
+```
+
+#### ⚠️ Critical Notes
+
+1. **Delete `.github/` before pushing** — the stub includes a workflow YAML that requires `workflow` PAT scope. Push will be rejected with a confusing error. Just `rm -rf .github`.
+
+2. **Node not in PATH** — always `export PATH="/tmp/node-v22.12.0-linux-x64/bin:$PATH"` at the top of any session that needs npm/ng.
+
+3. **CSS budget warning** is not an error — build still succeeds. Only `maximumError` stops the build.
+
+4. **`main.ts` import** — stub uses `App`, Angular component is `AppComponent`. Fix the import alias.
+
+5. **2-player flow** — for hot-seat multiplayer, track each player's frame independently. Switch `curIdx` after each complete frame. Wrap around (P2 done → P1's next frame) by incrementing all `player.frame` when index returns to 0.
+
+6. **PATs in use:** (ask Tim for current tokens — stored in Claude project memory)
+   - Repo-scope PAT — push code, deploy all games via angular-cli-ghpages
+   - Gist-scope PAT — read/write the private "Virtual Tim To Do List" gist only
+
+### 🔗 Live Game URL
+
+```
+https://timothyoverton.github.io/bowling-game/
+```
+
+---
