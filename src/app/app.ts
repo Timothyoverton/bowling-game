@@ -128,7 +128,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
     switch (this.phase) {
       case 'aiming': {
-        const spd = 0.0034;
+        const spd = 0.00113;  // ÷3 from original — fine-grain left/right control
         if (this.leftHeld)  this.aimGX = Math.max(-0.88, this.aimGX - spd * dt);
         if (this.rightHeld) this.aimGX = Math.min( 0.88, this.aimGX + spd * dt);
         break;
@@ -498,7 +498,8 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   // Pin SVG data — returns ground position for shadow and elevated body position
   pinSvg(pin: Pin) {
     const { x, y: groundY, scale } = this.proj(pin.gx, pin.gy);
-    const r = 9 * scale;
+    // Additive radius: pure depth-scale makes far pins ~2px; add base size so they stay visible.
+    const r = 10 + 18 * scale;
     const heightPx = pin.hz * 420 * scale;
     const y = groundY - heightPx;                                // elevated pin center
     const angle = pin.standing ? 0 : pin.fallDir * 88 * Math.min(pin.fallPct, 1);
