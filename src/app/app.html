@@ -1,0 +1,242 @@
+<div class="wrapper">
+
+  <!-- ── SETUP ─────────────────────────────────────────────── -->
+  <div *ngIf="phase === 'setup'" class="setup-screen">
+    <div class="setup-logo">🎳</div>
+    <h1 class="setup-title">BOWLING</h1>
+    <p class="setup-sub">Neon 10-Pin</p>
+    <div class="setup-btns">
+      <button class="btn-player" (click)="startGame(1)">1 Player</button>
+      <button class="btn-player" (click)="startGame(2)">2 Players</button>
+    </div>
+    <p class="setup-hint">← → aim · SPACE power · ← → curve</p>
+  </div>
+
+  <!-- ── GAME ──────────────────────────────────────────────── -->
+  <ng-container *ngIf="phase !== 'setup' && phase !== 'gameover'">
+
+    <!-- Player & frame header -->
+    <div class="hud">
+      <span class="hud-name">{{ cur.name }}</span>
+      <span class="hud-frame">Frame {{ cur.frame + 1 }} of 10</span>
+      <span class="hud-score">Score {{ totalScore(cur) }}</span>
+    </div>
+
+    <!-- 3D bowling scene (SVG) -->
+    <div class="scene-wrap">
+      <svg [attr.width]="SW" [attr.height]="SH" class="scene-svg">
+
+        <!-- Sky / back wall -->
+        <rect x="0" y="0" [attr.width]="SW" [attr.height]="VY + 30" class="backwall"/>
+
+        <!-- Left gutter -->
+        <polygon [attr.points]="glPoints" class="gutter"/>
+        <!-- Right gutter -->
+        <polygon [attr.points]="grPoints" class="gutter"/>
+
+        <!-- Lane floor (wood) -->
+        <polygon [attr.points]="lanePoints" class="lane-floor"/>
+
+        <!-- Wood grain lines (subtle vertical streaks) -->
+        <line *ngFor="let gx of [-0.55,-0.28,0,0.28,0.55]"
+              [attr.x1]="proj(gx,0).x" [attr.y1]="proj(gx,0).y"
+              [attr.x2]="proj(gx,1).x" [attr.y2]="proj(gx,1).y"
+              class="wood-grain"/>
+
+        <!-- Range-finder dots -->
+        <circle *ngFor="let d of dots"
+                [attr.cx]="d.x" [attr.cy]="d.y"
+                [attr.r]="3.5 * d.scale"
+                class="lane-dot"/>
+
+        <!-- Approach arrows -->
+        <polygon *ngFor="let ap of arrowPts"
+                 [attr.points]="ap"
+                 class="arrow-mark"/>
+
+        <!-- Center guide line (faint) -->
+        <line [attr.x1]="proj(0,0.12).x" [attr.y1]="proj(0,0.12).y"
+              [attr.x2]="proj(0,0.96).x" [attr.y2]="proj(0,0.96).y"
+              class="center-line"/>
+
+        <!-- Foul line -->
+        <line [attr.x1]="proj(-1,0.965).x" [attr.y1]="proj(-1,0.965).y"
+              [attr.x2]="proj(1,0.965).x"  [attr.y2]="proj(1,0.965).y"
+              class="foul-line"/>
+
+        <!-- Pin deck (slightly lighter) -->
+        <polygon [attr.points]="
+            proj(-0.75,0.04).x + ',' + proj(-0.75,0.04).y + ' ' +
+            proj(0.75,0.04).x  + ',' + proj(0.75,0.04).y  + ' ' +
+            proj(0.75,0.155).x + ',' + proj(0.75,0.155).y + ' ' +
+            proj(-0.75,0.155).x+ ',' + proj(-0.75,0.155).y"
+          class="pin-deck"/>
+
+        <!-- Pins (drawn back-to-front for correct occlusion) -->
+        <g *ngFor="let pin of pins">
+          <ng-container *ngIf="pinSvg(pin) as p">
+            <!-- Shadow ellipse -->
+            <ellipse
+              [attr.cx]="p.x"
+              [attr.cy]="p.y + p.r * 0.5"
+              [attr.rx]="p.r * 1.2"
+              [attr.ry]="p.r * 0.4"
+              [attr.opacity]="p.op * 0.5"
+              class="pin-shadow"/>
+            <!-- Pin body, rotates around base when falling -->
+            <g [attr.transform]="'rotate(' + p.angle + ',' + p.x + ',' + (p.y + p.r) + ')'">
+              <rect
+                [attr.x]="p.x - p.r * 0.65"
+                [attr.y]="p.y - p.r * 2.4"
+                [attr.width]="p.r * 1.3"
+                [attr.height]="p.r * 2.4"
+                [attr.rx]="p.r * 0.65"
+                [attr.opacity]="p.op"
+                class="pin-body"/>
+              <!-- Red stripe -->
+              <rect
+                [attr.x]="p.x - p.r * 0.65"
+                [attr.y]="p.y - p.r * 1.85"
+                [attr.width]="p.r * 1.3"
+                [attr.height]="p.r * 0.38"
+                [attr.opacity]="p.op"
+                class="pin-stripe"/>
+              <!-- Second stripe -->
+              <rect
+                [attr.x]="p.x - p.r * 0.65"
+                [attr.y]="p.y - p.r * 1.30"
+                [attr.width]="p.r * 1.3"
+                [attr.height]="p.r * 0.28"
+                [attr.opacity]="p.op"
+                class="pin-stripe"/>
+            </g>
+          </ng-container>
+        </g>
+
+        <!-- Aim guide -->
+        <ng-container *ngIf="phase === 'aiming' || phase === 'power'">
+          <polyline [attr.points]="aimLinePts" class="aim-line"/>
+          <polygon
+            [attr.points]="
+              (aimCursor.x) + ',' + (aimCursor.y - 18*aimCursor.scale) + ' ' +
+              (aimCursor.x - 10*aimCursor.scale) + ',' + (aimCursor.y + 2*aimCursor.scale) + ' ' +
+              (aimCursor.x + 10*aimCursor.scale) + ',' + (aimCursor.y + 2*aimCursor.scale)"
+            class="aim-arrow"/>
+        </ng-container>
+
+        <!-- Bowling ball -->
+        <ng-container *ngIf="ballVis">
+          <circle
+            [attr.cx]="ballCircle.cx"
+            [attr.cy]="ballCircle.cy + ballCircle.r * 0.4"
+            [attr.rx]="ballCircle.r * 1.1"
+            [attr.ry]="ballCircle.r * 0.35"
+            class="ball-shadow"/>
+          <circle
+            [attr.cx]="ballCircle.cx"
+            [attr.cy]="ballCircle.cy"
+            [attr.r]="ballCircle.r"
+            class="ball"/>
+          <!-- Finger holes -->
+          <circle [attr.cx]="ballCircle.cx - ballCircle.r*0.22"
+                  [attr.cy]="ballCircle.cy - ballCircle.r*0.28"
+                  [attr.r]="ballCircle.r*0.14" class="ball-hole"/>
+          <circle [attr.cx]="ballCircle.cx + ballCircle.r*0.12"
+                  [attr.cy]="ballCircle.cy - ballCircle.r*0.38"
+                  [attr.r]="ballCircle.r*0.14" class="ball-hole"/>
+          <circle [attr.cx]="ballCircle.cx + ballCircle.r*0.34"
+                  [attr.cy]="ballCircle.cy - ballCircle.r*0.12"
+                  [attr.r]="ballCircle.r*0.18" class="ball-hole"/>
+        </ng-container>
+
+        <!-- Result flash text -->
+        <text *ngIf="phase === 'result' || phase === 'nextPlayer'"
+              [attr.x]="SW/2" [attr.y]="SH/2 - 40"
+              text-anchor="middle" [class]="'result-text result-' + resultClass">
+          {{ resultText }}
+        </text>
+        <text *ngIf="phase === 'nextPlayer'"
+              [attr.x]="SW/2" [attr.y]="SH/2 + 10"
+              text-anchor="middle" class="result-sub">
+          {{ nextPName }} — your turn
+        </text>
+
+      </svg>
+
+      <!-- Power meter (overlay under scene) -->
+      <div *ngIf="phase === 'power'" class="power-wrap">
+        <div class="power-label">POWER</div>
+        <div class="power-track">
+          <div class="power-fill" [style.width.%]="power"
+               [class.power-hi]="power > 75" [class.power-lo]="power < 30"></div>
+          <div class="power-knob" [style.left.%]="power"></div>
+        </div>
+        <div class="power-val">{{ power | number:'1.0-0' }}%</div>
+      </div>
+    </div>
+
+    <!-- Controls hint -->
+    <div class="hint-bar">{{ hint }}</div>
+
+    <!-- Scoreboard -->
+    <div class="scoreboard">
+      <table *ngFor="let p of players" class="score-table">
+        <thead>
+          <tr>
+            <th class="name-cell" [class.active-name]="p === cur" colspan="1">{{ p.name }}</th>
+            <th *ngFor="let fi of range(10)"
+                class="frame-head"
+                [class.active-frame]="isActive(p, fi)">{{ fi + 1 }}</th>
+            <th class="total-head">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Roll boxes -->
+          <tr>
+            <td class="name-cell" [class.active-name]="p === cur">Rolls</td>
+            <td *ngFor="let fi of range(10)" class="frame-cell" [class.active-frame]="isActive(p, fi)">
+              <ng-container *ngIf="fi < 9">
+                <span class="r-box" [class.strike]="rollLabel(p,fi,0)==='X'">{{ rollLabel(p,fi,0) }}</span>
+                <span class="r-box" [class.spare]="rollLabel(p,fi,1)==='/'">{{ rollLabel(p,fi,1) }}</span>
+              </ng-container>
+              <ng-container *ngIf="fi === 9">
+                <span class="r-box" [class.strike]="rollLabel(p,9,0)==='X'">{{ rollLabel(p,9,0) }}</span>
+                <span class="r-box" [class.strike]="rollLabel(p,9,1)==='X'" [class.spare]="rollLabel(p,9,1)==='/'">{{ rollLabel(p,9,1) }}</span>
+                <span class="r-box" [class.strike]="rollLabel(p,9,2)==='X'">{{ rollLabel(p,9,2) }}</span>
+              </ng-container>
+            </td>
+            <td class="total-cell" [class.active-name]="p === cur">{{ totalScore(p) }}</td>
+          </tr>
+          <!-- Running score -->
+          <tr>
+            <td class="name-cell score-row">Score</td>
+            <td *ngFor="let fi of range(10)" class="score-cell" [class.active-frame]="isActive(p, fi)">
+              {{ p.frames[fi].score ?? '' }}
+            </td>
+            <td class="total-cell"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </ng-container>
+
+  <!-- ── GAME OVER ──────────────────────────────────────────── -->
+  <div *ngIf="phase === 'gameover'" class="over-screen">
+    <div class="over-logo">🎳</div>
+    <h1 class="over-title">GAME OVER</h1>
+    <div class="over-results">
+      <div *ngFor="let p of players" class="over-player">
+        <span class="over-name">{{ p.name }}</span>
+        <span class="over-final">{{ totalScore(p) }}</span>
+        <span *ngIf="totalScore(p) === 300" class="perfect">PERFECT GAME!</span>
+      </div>
+    </div>
+    <div *ngIf="playerCount > 1" class="over-winner">
+      🏆 {{ players[0].name }} {{ totalScore(players[0]) > totalScore(players[1]) ? 'wins' : (totalScore(players[0]) === totalScore(players[1]) ? 'tie!' : '') }}
+      {{ totalScore(players[1]) > totalScore(players[0]) ? players[1].name + ' wins' : '' }}
+    </div>
+    <button class="btn-again" (click)="phase = 'setup'">Play Again</button>
+  </div>
+
+</div>
