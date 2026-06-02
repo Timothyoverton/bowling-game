@@ -121,9 +121,10 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   // ── Master tick ───────────────────────────────────────────────
 
   private tick(dt: number, ts: number) {
+    const f = dt / (1000 / 60); // 1.0 at 60 fps, 0.5 at 120 fps
     // Pin physics runs in every non-setup/gameover phase
     if (this.phase !== 'setup' && this.phase !== 'gameover') {
-      for (const pin of this.pins) this.stepPinPhysics(pin);
+      for (const pin of this.pins) this.stepPinPhysics(pin, f);
     }
 
     switch (this.phase) {
@@ -134,7 +135,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
         break;
       }
       case 'power': {
-        this.power += this.powerDir * 1.6;
+        this.power += this.powerDir * 1.6 * f;
         if (this.power >= 100) { this.power = 100; this.powerDir = -1; }
         if (this.power <= 0)   { this.power = 0;   this.powerDir =  1; }
         break;
@@ -142,7 +143,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
       case 'rolling': {
         if (this.leftHeld)  this.hookAcc = Math.max(-0.30, this.hookAcc - 0.00085 * dt);
         if (this.rightHeld) this.hookAcc = Math.min( 0.30, this.hookAcc + 0.00085 * dt);
-        this.ballGY -= this.rollSpeed;
+        this.ballGY -= this.rollSpeed * f;
         this.ballGX  = this.throwGX + this.hookAcc * (1 - this.ballGY);
         if (Math.abs(this.ballGX) > 1.04) {
           this.ballGX = Math.sign(this.ballGX) * 1.04;
@@ -164,18 +165,18 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
   // ── Pin physics ───────────────────────────────────────────────
 
-  private stepPinPhysics(pin: Pin) {
+  private stepPinPhysics(pin: Pin, f: number) {
     if (!pin.physActive) return;
 
     // Lateral / depth slide with friction
-    pin.vx *= 0.955;
-    pin.vy *= 0.955;
-    pin.gx += pin.vx;
-    pin.gy += pin.vy;
+    pin.vx *= Math.pow(0.955, f);
+    pin.vy *= Math.pow(0.955, f);
+    pin.gx += pin.vx * f;
+    pin.gy += pin.vy * f;
 
     // Vertical arc (gravity + bounce)
-    pin.vz -= 0.0048;
-    pin.hz += pin.vz;
+    pin.vz -= 0.0048 * f;
+    pin.hz += pin.vz * f;
 
     if (pin.hz <= 0) {
       pin.hz = 0;
