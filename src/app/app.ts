@@ -93,6 +93,8 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   hookAcc = 0;
   private rollSpeed = 0;
   private throwGX = 0;
+  private wobbleDrift = 0;   // lateral drift per ms, randomised at throw time
+  private wobbleActive = false; // cleared when player steers with keys
 
   resultText = ''; resultClass = '';
 
@@ -141,8 +143,10 @@ export class AppComponent implements AfterViewInit, OnDestroy {
         break;
       }
       case 'rolling': {
+        if (this.leftHeld || this.rightHeld) this.wobbleActive = false;
         if (this.leftHeld)  this.hookAcc = Math.max(-0.30, this.hookAcc - 0.00085 * dt);
         if (this.rightHeld) this.hookAcc = Math.min( 0.30, this.hookAcc + 0.00085 * dt);
+        if (this.wobbleActive) this.hookAcc += this.wobbleDrift * dt;
         this.ballGY -= this.rollSpeed * f;
         this.ballGX  = this.throwGX + this.hookAcc * (1 - this.ballGY);
         if (Math.abs(this.ballGX) > 1.04) {
@@ -248,6 +252,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   }
 
   private prepNextBall() {
+    this.pins = this.pins.filter(p => p.standing); // remove knocked-down pins from view
     this.ballVis = false; this.ballGX = 0; this.ballGY = 1.0;
     this.aimGX = 0; this.hookAcc = 0;
     this.phase = 'aiming';
@@ -268,11 +273,13 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   private beginPower() { this.phase = 'power'; this.power = 0; this.powerDir = 1; }
 
   private doThrow() {
-    this.throwGX   = this.aimGX;
-    this.hookAcc   = 0;
-    this.rollSpeed = 0.013 + (this.power / 100) * 0.018;
-    this.ballVis   = true; this.ballGX = this.throwGX; this.ballGY = 1.0;
-    this.phase     = 'rolling';
+    this.throwGX     = this.aimGX;
+    this.hookAcc     = 0;
+    this.rollSpeed   = 0.013 + (this.power / 100) * 0.018;
+    this.wobbleDrift = (Math.random() - 0.5) * 0.00022; // random left/right drift velocity
+    this.wobbleActive = true;
+    this.ballVis     = true; this.ballGX = this.throwGX; this.ballGY = 1.0;
+    this.phase       = 'rolling';
   }
 
   // ── Ball lands / pin knock ────────────────────────────────────
