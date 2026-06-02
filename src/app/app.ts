@@ -276,7 +276,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     this.throwGX     = this.aimGX;
     this.hookAcc     = 0;
     this.rollSpeed   = 0.013 + (this.power / 100) * 0.018;
-    this.wobbleDrift = (Math.random() - 0.5) * 0.00022; // random left/right drift velocity
+    this.wobbleDrift = (Math.random() - 0.5) * 0.00100; // random left/right drift velocity
     this.wobbleActive = true;
     this.ballVis     = true; this.ballGX = this.throwGX; this.ballGY = 1.0;
     this.phase       = 'rolling';
